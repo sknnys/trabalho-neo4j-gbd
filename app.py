@@ -28,6 +28,13 @@ def index():
 def search():
     keyword_input = request.form['keyword']
     keywords = extract_keywords(keyword_input)
+    keywords = [keyword.strip().lower() for keyword in keywords]  # Converte as palavras-chave para minúsculas
+    
+    # Verifica se há palavras-chave válidas
+    if not keywords:
+        print("Nenhuma palavra-chave válida encontrada.")
+        return redirect(url_for('index'))  # Redireciona se não houver palavras-chave
+
     articles = fetch_articles_by_keyword(keyword_input)
     
     if articles:
@@ -80,21 +87,31 @@ def fetch_articles_by_keyword(keyword):
 def insert_article(tx, title, authors, publication_year, keywords):
     print(f"Inserindo artigo: {title}")  # Log para verificar artigo
 
+    # Usar MERGE para evitar duplicação de artigos
+    tx.run(
+        "MERGE (a:Article {title: $title, publication_year: $publication_year})",
+        title=title, publication_year=publication_year
+    )
+    
     for keyword in keywords:
         print(f"Inserindo palavra-chave: {keyword}")  # Log para verificar palavra-chave
+        # Usar MERGE para evitar duplicação de palavras-chave e relacionamentos
         tx.run("MERGE (k:Keyword {name: $keyword})", keyword=keyword)
-        
-        tx.run("CREATE (a:Article {title: $title, publication_year: $publication_year})", 
-               title=title, publication_year=publication_year)
-        
-        tx.run("MATCH (k:Keyword {name: $keyword}), (a:Article {title: $title}) "
-               "CREATE (k)-[:RELATED_TO]->(a)", keyword=keyword, title=title)
+        tx.run(
+            "MATCH (k:Keyword {name: $keyword}), (a:Article {title: $title}) "
+            "MERGE (k)-[:RELATED_TO]->(a)", 
+            keyword=keyword, title=title
+        )
     
     for author in authors:
         print(f"Inserindo autor: {author}")  # Log para verificar autor
+        # Usar MERGE para evitar duplicação de autores e relacionamentos
         tx.run("MERGE (au:Author {name: $name})", name=author)
-        tx.run("MATCH (a:Article {title: $title}), (au:Author {name: $name}) "
-               "CREATE (au)-[:WROTE]->(a)", title=title, name=author)
+        tx.run(
+            "MATCH (a:Article {title: $title}), (au:Author {name: $name}) "
+            "MERGE (au)-[:WROTE]->(a)", 
+            title=title, name=author
+        )
 
 def insert_articles(articles, keywords):
     with driver.session() as session:
