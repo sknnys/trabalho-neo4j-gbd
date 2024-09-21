@@ -2,13 +2,15 @@ from flask import Flask, render_template, request, redirect, url_for
 from neo4j import GraphDatabase
 from bs4 import BeautifulSoup
 import requests
-import re 
+import re
+import os
 
 app = Flask(__name__)
 
-uri = "neo4j+s://5d2e5152.databases.neo4j.io:7687"  
-username = "neo4j"  
-password = "VkxKaiVosysOVAJALSxysXmeFDl63Lr7_i5WwDTkRow"  
+# Obtenção das variáveis de ambiente
+uri = os.getenv("NEO4J_URI")
+username = os.getenv("NEO4J_USERNAME")
+password = os.getenv("NEO4J_PASSWORD")
 driver = GraphDatabase.driver(uri, auth=(username, password))
 
 @app.route('/')
@@ -18,9 +20,9 @@ def index():
 @app.route('/search', methods=['POST'])
 def search():
     keyword_input = request.form['keyword']
-    keywords = extract_keywords(keyword_input) 
+    keywords = extract_keywords(keyword_input)
     articles = fetch_articles_by_keyword(keyword_input)
-    insert_articles(articles, keywords)  
+    insert_articles(articles, keywords)
     return redirect(url_for('index'))
 
 def extract_keywords(keyword_input):
