@@ -1,9 +1,12 @@
+from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for
 from neo4j import GraphDatabase
 from bs4 import BeautifulSoup
 import requests
 import re
 import os
+
+load_dotenv()
 
 app = Flask(__name__)
 
