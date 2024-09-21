@@ -1,0 +1,17 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pesquisa e Inserção de Artigos no Neo4j</title>
+</head>
+<body>
+    <h1>Pesquisar Artigos Acadêmicos</h1>
+    <form action="/search" method="post">
+        <label for="keyword">Digite o tema para pesquisa:</label>
+        <input type="text" id="keyword" name="keyword" required>
+        <button type="submit">Buscar e Inserir</button>
+    </form>
+</body>
+</html>
