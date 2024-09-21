@@ -6,15 +6,19 @@ import requests
 import re
 import os
 
-load_dotenv()
-
 app = Flask(__name__)
 
+load_dotenv()
 # Obtenção das variáveis de ambiente
 uri = os.getenv("NEO4J_URI")
 username = os.getenv("NEO4J_USERNAME")
 password = os.getenv("NEO4J_PASSWORD")
 driver = GraphDatabase.driver(uri, auth=(username, password))
+
+# Teste da conexão com o banco Neo4j
+with driver.session() as session:
+    result = session.run("RETURN 1")
+    print(f"Conexão com o Neo4j: {result.single()}")  # Verifica se a conexão está ativa
 
 @app.route('/')
 def index():
@@ -25,16 +29,25 @@ def search():
     keyword_input = request.form['keyword']
     keywords = extract_keywords(keyword_input)
     articles = fetch_articles_by_keyword(keyword_input)
-    insert_articles(articles, keywords)
+    
+    if articles:
+        insert_articles(articles, keywords)
+    else:
+        print("Nenhum artigo encontrado para inserção.")
+    
     return redirect(url_for('index'))
 
 def extract_keywords(keyword_input):
+    # Extrair palavras-chave entre asteriscos (*)
     return re.findall(r'\*(.*?)\*', keyword_input)
 
 def fetch_articles_by_keyword(keyword):
+    # Realiza a busca no Google Scholar
     url = f"https://scholar.google.com/scholar?q={keyword}"
     headers = {'User-Agent': 'Mozilla/5.0'}
     response = requests.get(url, headers=headers)
+
+    print(f"Status code da resposta: {response.status_code}")
 
     if response.status_code == 200:
         soup = BeautifulSoup(response.text, 'html.parser')
@@ -51,16 +64,24 @@ def fetch_articles_by_keyword(keyword):
             year_match = re.search(r'\d{4}', author_info)
             publication_year = year_match.group(0) if year_match else 'Data não disponível'
 
-            articles.append({
+            article = {
                 'title': title_cleaned,
                 'authors': authors_cleaned,
                 'publication_year': publication_year
-            })
+            }
+            articles.append(article)
+            print(f"Artigo encontrado: {article}")  # Log do artigo encontrado
+
         return articles
+    else:
+        print("Erro ao buscar artigos.")
     return []
 
 def insert_article(tx, title, authors, publication_year, keywords):
+    print(f"Inserindo artigo: {title}")  # Log para verificar artigo
+
     for keyword in keywords:
+        print(f"Inserindo palavra-chave: {keyword}")  # Log para verificar palavra-chave
         tx.run("MERGE (k:Keyword {name: $keyword})", keyword=keyword)
         
         tx.run("CREATE (a:Article {title: $title, publication_year: $publication_year})", 
@@ -70,6 +91,7 @@ def insert_article(tx, title, authors, publication_year, keywords):
                "CREATE (k)-[:RELATED_TO]->(a)", keyword=keyword, title=title)
     
     for author in authors:
+        print(f"Inserindo autor: {author}")  # Log para verificar autor
         tx.run("MERGE (au:Author {name: $name})", name=author)
         tx.run("MATCH (a:Article {title: $title}), (au:Author {name: $name}) "
                "CREATE (au)-[:WROTE]->(a)", title=title, name=author)
@@ -77,12 +99,12 @@ def insert_article(tx, title, authors, publication_year, keywords):
 def insert_articles(articles, keywords):
     with driver.session() as session:
         for article in articles:
-            session.write_transaction(
+            session.execute_write(
                 insert_article, 
                 article['title'], 
                 article['authors'], 
                 article['publication_year'], 
-                keywords  
+                keywords
             )
 
 if __name__ == '__main__':
